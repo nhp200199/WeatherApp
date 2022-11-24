@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.Settings
@@ -39,7 +42,14 @@ class MainActivity : AppCompatActivity() {
     private fun requestUserPermission(permissions: Array<String>) {
         val permissionsNeedToGrant = permissions.filter { !hasPermission(it) }
 
-        if (permissionsNeedToGrant.isEmpty()) return
+        if (permissionsNeedToGrant.isEmpty()) {
+            if (hasInternetConnection(this)) {
+                Toast.makeText(this, "Internet connected", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Internet not connected", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
 
         if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
             showRequestPermissionRationaleDialog()
@@ -83,9 +93,31 @@ class MainActivity : AppCompatActivity() {
             }
             if (locationsGranted) {
                 Toast.makeText(this, "Location granted", Toast.LENGTH_SHORT).show()
+                if (hasInternetConnection(this)) {
+                    Toast.makeText(this, "Internet connected", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Internet not connected", Toast.LENGTH_SHORT).show()
+                }
             } else {
                 Toast.makeText(this, "Location not granted", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun hasInternetConnection(context: Context): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val network = connectivityManager.activeNetwork ?: return false
+            val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
+
+             return when {
+                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> true
+                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> true
+                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> true
+                else -> false
+            }
+        } else {
+            return connectivityManager.activeNetworkInfo ?.isConnectedOrConnecting ?: return false
         }
     }
 
