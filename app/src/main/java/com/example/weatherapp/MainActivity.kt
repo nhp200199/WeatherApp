@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : BaseActivity() {
     private val permissions = arrayOf(
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION
@@ -65,9 +65,11 @@ class MainActivity : AppCompatActivity() {
                                 Toast.makeText(this, "empty location", Toast.LENGTH_SHORT).show()
                             } else {
                                 coroutineScope.launch {
+                                    showDialog("this is title", "this is mesage", null, null)
                                     val response = withContext(Dispatchers.Main) {
                                         getWeatherData(location.latitude, location.longitude)
                                     }
+                                    hideDialog()
                                     Log.i("TAG", response.toString())
                                 }
                             }
