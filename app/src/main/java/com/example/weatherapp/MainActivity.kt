@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -11,15 +12,26 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class MainActivity : AppCompatActivity() {
     private val permissions = arrayOf(
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION
     )
+    private lateinit var fusedLocationLocation: FusedLocationProviderClient
+    private var coroutineScope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +57,24 @@ class MainActivity : AppCompatActivity() {
         if (permissionsNeedToGrant.isEmpty()) {
             if (hasInternetConnection(this)) {
                 Toast.makeText(this, "Internet connected", Toast.LENGTH_SHORT).show()
+                fusedLocationLocation = LocationServices.getFusedLocationProviderClient(this)
+                try {
+                    fusedLocationLocation.lastLocation
+                        .addOnSuccessListener { location: Location? ->
+                            if (location == null) {
+                                Toast.makeText(this, "empty location", Toast.LENGTH_SHORT).show()
+                            } else {
+                                coroutineScope.launch {
+                                    val response = withContext(Dispatchers.Main) {
+                                        getWeatherData(location.latitude, location.longitude)
+                                    }
+                                    Log.i("TAG", response.toString())
+                                }
+                            }
+                        }
+                } catch (e: SecurityException) {
+                    Toast.makeText(this, "exception: dont have permission", Toast.LENGTH_SHORT).show()
+                }
             } else {
                 Toast.makeText(this, "Internet not connected", Toast.LENGTH_SHORT).show()
             }
@@ -56,6 +86,16 @@ class MainActivity : AppCompatActivity() {
         } else {
             requestPermissions(permissionsNeedToGrant.toTypedArray(), REQ_LOCATION)
         }
+    }
+
+    private suspend fun getWeatherData(lat: Double, lon: Double): WeatherResponse {
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://api.openweathermap.org/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        val service = retrofit.create(ApiService::class.java)
+        return service.getWeather(lat, lon, resources.getString(R.string.API_KEY))
     }
 
     private fun showRequestPermissionRationaleDialog() {
